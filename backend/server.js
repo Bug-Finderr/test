@@ -3,13 +3,10 @@ const cors = require("cors");
 const db = require("./database");
 const scheduler = require("./scheduler");
 const fetchHandler = require("./fetchHandler");
-const env = require("dotenv");
 const { determineNextInterval } = require("./intervalUtils");
 
-env.config();
-
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 // Middleware
 app.use(cors());
@@ -17,7 +14,10 @@ app.use(express.json());
 
 // Routes
 
-// Setup Configuration
+/**
+ * Setup Configuration Endpoint
+ * Expects: fetchSnippet, slackWebhook, thresholds, defaultDuration
+ */
 app.post("/setup", async (req, res) => {
   const { fetchSnippet, slackWebhook, thresholds, defaultDuration } = req.body;
 
@@ -42,8 +42,8 @@ app.post("/setup", async (req, res) => {
       defaultDuration,
     });
 
-    // Initialize scheduler
-    scheduler.init({ fetchSnippet, slackWebhook, thresholds, defaultDuration });
+    // Initialize scheduler with the new configuration
+    scheduler.init();
 
     console.log("Configuration saved and scheduler initialized.");
     res.json({ status: "success" });
@@ -55,7 +55,10 @@ app.post("/setup", async (req, res) => {
   }
 });
 
-// Manual Fetch
+/**
+ * Manual Fetch Endpoint
+ * Triggers an immediate fetch operation
+ */
 app.post("/manual-fetch", async (req, res) => {
   try {
     const config = await db.getConfig();
@@ -65,34 +68,47 @@ app.post("/manual-fetch", async (req, res) => {
         .json({ status: "error", message: "Configuration not found." });
     }
 
+    // Stop any existing scheduled task
+    scheduler.stop();
+
     const { fetchSnippet, slackWebhook, thresholds, defaultDuration } = config;
-    const creditBalance = await fetchHandler.executeFetch(fetchSnippet);
-    await fetchHandler.handleBalance({
-      creditBalance,
-      slackWebhook,
-      thresholds,
-      manual: true,
-    });
+    const creditBalance = await fetchHandler.performFetch(
+      fetchSnippet,
+      slackWebhook
+    );
 
-    // Determine next interval
-    const nextInterval =
-      determineNextInterval(creditBalance, thresholds, defaultDuration) ||
-      defaultDuration;
-    const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
-    const nextFetchAt = nextFetchAtDate.toLocaleString();
+    if (creditBalance !== null && !isNaN(creditBalance)) {
+      await fetchHandler.handleBalance({
+        creditBalance,
+        slackWebhook,
+        thresholds,
+        manual: true,
+      });
 
-    // Update status in database
-    await db.updateStatus({
-      remainingBalance: creditBalance,
-      lastFetch: Date.now(),
-      nextFetchCountdown: nextInterval,
-      nextFetchAt: nextFetchAt,
-    });
+      // Determine the next interval based on the current balance
+      const nextInterval =
+        determineNextInterval(creditBalance, thresholds, defaultDuration) ||
+        defaultDuration;
+      const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
+      const nextFetchAt = nextFetchAtDate.toLocaleString();
 
-    // Schedule next fetch
-    scheduler.scheduleFetch(nextInterval);
+      // Update status in database
+      await db.updateStatus({
+        remainingBalance: creditBalance,
+        lastFetch: Date.now(),
+        nextFetchCountdown: nextInterval,
+        nextFetchAt: nextFetchAt,
+      });
 
-    res.json({ status: "success" });
+      // Schedule the next fetch
+      scheduler.scheduleFetch(nextInterval);
+
+      res.json({ status: "success" });
+    } else {
+      res
+        .status(500)
+        .json({ status: "error", message: "Failed to fetch credit balance." });
+    }
   } catch (error) {
     console.error("Error in manual fetch:", error);
     res
@@ -101,7 +117,10 @@ app.post("/manual-fetch", async (req, res) => {
   }
 });
 
-// Status Endpoint
+/**
+ * Status Endpoint
+ * Retrieves the current monitoring status
+ */
 app.get("/status", async (req, res) => {
   try {
     const status = await db.getStatus();
@@ -114,7 +133,10 @@ app.get("/status", async (req, res) => {
   }
 });
 
-// Get Configuration Endpoint
+/**
+ * Get Configuration Endpoint
+ * Retrieves the current configuration
+ */
 app.get("/config", async (req, res) => {
   try {
     const config = await db.getConfig();
@@ -143,8 +165,6 @@ app.listen(PORT, () => {
 
   // Initialize scheduler if configuration exists
   db.getConfig().then((config) => {
-    if (config) {
-      scheduler.init(config);
-    }
+    if (config) scheduler.init();
   });
 });

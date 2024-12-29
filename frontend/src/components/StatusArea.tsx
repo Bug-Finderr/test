@@ -3,6 +3,7 @@ interface StatusAreaProps {
   lastFetch: string;
   nextFetchIn: string;
   nextFetchAt: string;
+  onRefresh: () => void;
 }
 
 const StatusArea: React.FC<StatusAreaProps> = ({
@@ -10,10 +11,20 @@ const StatusArea: React.FC<StatusAreaProps> = ({
   lastFetch,
   nextFetchIn,
   nextFetchAt,
+  onRefresh,
 }) => {
   return (
     <div className="section">
-      <h2>Monitor Status</h2>
+      <div className="status-header">
+        <h2>Monitor Status</h2>
+        <button
+          onClick={onRefresh}
+          className="refresh-button"
+          aria-label="Refresh status"
+        >
+          ↻
+        </button>
+      </div>
       <div className="status-items">
         <div className="status-item">
           <span>Remaining Balance</span>
