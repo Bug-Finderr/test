@@ -97,7 +97,7 @@ app.post("/manual-fetch", async (req, res) => {
         remainingBalance: creditBalance,
         lastFetch: Date.now(),
         nextFetchCountdown: nextInterval,
-        nextFetchAt: nextFetchAt,
+        nextFetchAt: nextFetchAtDate.toISOString(),
       });
 
       // Schedule the next fetch

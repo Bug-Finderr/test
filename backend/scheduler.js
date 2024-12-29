@@ -23,10 +23,9 @@ const scheduleFetch = (intervalInMinutes) => {
       await performFetchOperation();
     });
 
+    const nextFetchDate = new Date(Date.now() + intervalInMinutes * 60000);
     console.log(
-      `Scheduled next fetch in ${intervalInMinutes} minutes.\nNext fetch at: ${new Date(
-        Date.now() + intervalInMinutes * 60000
-      ).toLocaleString()}\n`
+      `Scheduled next fetch in ${intervalInMinutes} minutes.\nNext fetch at: ${nextFetchDate.toISOString()}\n`
     );
   } catch (error) {
     console.error("Error scheduling fetch:", error);

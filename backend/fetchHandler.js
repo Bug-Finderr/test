@@ -159,7 +159,9 @@ const handleBalance = async ({
       slackWebhook,
       `:warning: *Anthropic Credit Monitor Error*\n\n` +
         `Failed to fetch or parse credit balance.\n` +
-        `• Time: \`${new Date().toLocaleString()}\`\n` +
+        `• Time: <!date^${Math.floor(
+          Date.now() / 1000
+        )}^{date_short_pretty} at {time}|${new Date().toISOString()}>\n` +
         `• Please check your configuration.`
     );
     return;
@@ -176,7 +178,9 @@ const handleBalance = async ({
           `Your API credit balance has fallen below the threshold.\n\n` +
           `• Current Balance: \`$${creditBalance.toFixed(2)}\`\n` +
           `• Threshold Limit: \`$${threshold.limit.toFixed(2)}\`\n` +
-          `• Time: \`${new Date().toLocaleString()}\`\n\n` +
+          `• Time: <!date^${Math.floor(
+            Date.now() / 1000
+          )}^{date_short_pretty} at {time}|${new Date().toISOString()}>\n\n` +
           `_Please consider topping up your credits to avoid service interruptions._`
       );
       break; // Alert once for the first matched threshold

@@ -196,12 +196,14 @@ const getStatus = () => {
             ? `$${row.remainingBalance.toFixed(2)}`
             : "N/A",
           lastFetch: row.lastFetch
-            ? new Date(row.lastFetch).toLocaleString()
+            ? new Date(row.lastFetch).toISOString()
             : "N/A",
           nextFetchCountdown: row.nextFetchCountdown
             ? `${row.nextFetchCountdown} minutes`
             : "N/A",
-          nextFetchAt: row.nextFetchAt || "N/A",
+          nextFetchAt: row.nextFetchAt
+            ? new Date(row.nextFetchAt).toISOString()
+            : "N/A",
         };
         resolve(formattedStatus);
       }
