@@ -119,6 +119,7 @@ const App: React.FC = () => {
               lastFetch={lastFetch}
               nextFetchIn={nextFetchIn}
               nextFetchAt={nextFetchAt}
+              onRefresh={fetchStatus}
             />
             <ManualFetchButton onManualFetch={handleManualFetch} />
             <div className="section configuration-section">

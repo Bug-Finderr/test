@@ -55,6 +55,7 @@ Both parts must be self-hosted by the user.
 - **SQLite3:** Used as a lightweight database for configuration and status storage.
 - **Slack Workspace:** To receive notifications.
 - **Hosting Environment:** Frontend and backend need to be hosted separately by the user.
+- **System Resources:** Each fetch operation takes approximately 10-60 seconds.
 
 ---
 
@@ -74,6 +75,8 @@ Both parts must be self-hosted by the user.
    pnpm install
    pnpm start
    ```
+
+   _Note: On servers, backend must be hosted via Dockerfile due to Puppeteer dependencies._
 
 3. **Frontend Setup:**
 
@@ -170,10 +173,22 @@ If you need the Chrome Extension version, switch to the `extension` branch.
   - Verify the Slack webhook URL is accurate.
   - Ensure the backend server is running without errors (`npm start`).
   - Check browser developer tools for any errors during fetch operations.
+  - Note that each fetch attempt can take 10-60 seconds, with additional time for retries on failures.
 
 - **Slack Alerts Not Working:**
   - Confirm the Slack app permissions and webhook URL.
   - Ensure the Slack channel exists and the webhook is properly authorized.
+
+## Development Status
+
+- **Testing Coverage:** Backend is currently not end-to-end tested and may exhibit minor bugs in production environments.
+- **Known Performance Considerations:**
+  - Each fetch operation takes approximately 10-60 seconds
+  - Failed fetches trigger retries, each taking an additional 10-60 seconds
+  - Multiple concurrent fetches may impact system performance
+- **Future Development:**
+  - End-to-end testing implementation is planned for the next patch/release
+  - Performance optimizations are under consideration
 
 ---
 

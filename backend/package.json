@@ -1,6 +1,6 @@
 {
   "name": "anthropic-credit-monitor-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend for Anthropic Credit Monitor",
   "main": "server.js",
   "scripts": {
@@ -13,9 +13,11 @@
   "dependencies": {
     "axios": "^1.7.9",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "node-cron": "^3.0.3",
+    "puppeteer": "^23.11.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

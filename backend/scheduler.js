@@ -1,35 +1,53 @@
 const cron = require("node-cron");
 const fetchHandler = require("./fetchHandler");
-const slackNotifier = require("./slackNotifier");
 const db = require("./database");
 const { determineNextInterval } = require("./intervalUtils");
 
 let currentTask = null;
 
+/**
+ * Schedules the next fetch operation.
+ * @param {number} intervalInMinutes - The interval in minutes for the next fetch.
+ */
 const scheduleFetch = (intervalInMinutes) => {
-  if (currentTask) {
-    currentTask.stop();
-  }
+  // First stop any existing task
+  stop();
 
   // Convert minutes to cron expression
-  // Cron expressions in node-cron have the format: second minute hour day month weekday
-  // To schedule every 'intervalInMinutes' minutes, use '0 */intervalInMinutes * * * *'
+  // Cron format: second minute hour day month weekday
   const cronExpression = `0 */${intervalInMinutes} * * * *`;
 
-  currentTask = cron.schedule(cronExpression, async () => {
-    console.log("Scheduled fetch triggered.");
-    await performFetch();
-  });
+  try {
+    currentTask = cron.schedule(cronExpression, async () => {
+      console.log("Scheduled fetch triggered.");
+      await performFetchOperation();
+    });
 
-  currentTask.start();
-  console.log(
-    `Scheduled next fetch in ${intervalInMinutes} minutes.\nNext fetch at: ${new Date(
-      Date.now() + intervalInMinutes * 60000
-    ).toLocaleString()}`
-  );
+    const nextFetchDate = new Date(Date.now() + intervalInMinutes * 60000);
+    console.log(
+      `Scheduled next fetch in ${intervalInMinutes} minutes.\nNext fetch at: ${nextFetchDate.toISOString()}\n`
+    );
+  } catch (error) {
+    console.error("Error scheduling fetch:", error);
+    currentTask = null;
+  }
 };
 
-const performFetch = async () => {
+/**
+ * Stops the current scheduled fetch operation.
+ */
+const stop = () => {
+  if (currentTask) {
+    currentTask.stop();
+    currentTask = null;
+    console.log("Existing scheduled task stopped.");
+  }
+};
+
+/**
+ * Performs the fetch operation and updates the status.
+ */
+const performFetchOperation = async () => {
   try {
     const config = await db.getConfig();
     if (!config) {
@@ -38,69 +56,61 @@ const performFetch = async () => {
     }
 
     const { fetchSnippet, slackWebhook, thresholds, defaultDuration } = config;
-    const creditBalance = await fetchHandler.executeFetch(fetchSnippet);
-
-    if (creditBalance === null || isNaN(creditBalance)) {
-      await slackNotifier.sendToSlack(
-        slackWebhook,
-        `:warning: *Anthropic Credit Monitor Error*\n\n` +
-          `Failed to fetch or parse credit balance.\n` +
-          `• Time: \`${new Date().toLocaleString()}\`\n` +
-          `• Please check your configuration.`
-      );
-      // Schedule next fetch with default interval
-      scheduleFetch(defaultDuration);
-      return;
-    }
-
-    console.log(`Fetched Credit Balance: ${creditBalance}`);
-
-    // Determine next interval
-    const nextInterval = determineNextInterval(
-      creditBalance,
-      thresholds,
-      defaultDuration
+    const creditBalance = await fetchHandler.performFetch(
+      fetchSnippet,
+      slackWebhook
     );
-    const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
-    const nextFetchAt = nextFetchAtDate.toLocaleString();
 
-    // Update status in database
-    await db.updateStatus({
-      remainingBalance: creditBalance,
-      lastFetch: Date.now(),
-      nextFetchCountdown: nextInterval,
-      nextFetchAt: nextFetchAt,
-    });
+    if (creditBalance !== null && !isNaN(creditBalance)) {
+      await fetchHandler.handleBalance({
+        creditBalance,
+        slackWebhook,
+        thresholds,
+        manual: false,
+      });
 
-    // Send alert if below any threshold
-    for (const threshold of thresholds) {
-      if (creditBalance <= threshold.limit) {
-        await slackNotifier.sendToSlack(
-          slackWebhook,
-          `:alert: *Anthropic Credit Alert*\n\n` +
-            `Your API credit balance has fallen below the threshold.\n\n` +
-            `• Current Balance: \`$${creditBalance.toFixed(2)}\`\n` +
-            `• Threshold Limit: \`$${threshold.limit.toFixed(2)}\`\n` +
-            `• Time: \`${new Date().toLocaleString()}\`\n\n` +
-            `_Please consider topping up your credits to avoid service interruptions._`
-        );
-        break; // Alert once for the first matched threshold
-      }
+      // Determine the next interval based on the current balance
+      const nextInterval = determineNextInterval(
+        creditBalance,
+        thresholds,
+        defaultDuration
+      );
+
+      const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
+      const nextFetchAt = nextFetchAtDate.toLocaleString();
+
+      // Update status in database
+      await db.updateStatus({
+        remainingBalance: creditBalance,
+        lastFetch: Date.now(),
+        nextFetchCountdown: nextInterval,
+        nextFetchAt: nextFetchAt,
+      });
+
+      // Schedule the next fetch
+      scheduleFetch(nextInterval);
+    } else {
+      // If fetch failed, performFetch already handled Slack notification
+      console.warn("Failed to fetch credit balance.");
     }
-
-    // Reschedule based on current balance
-    scheduleFetch(nextInterval);
   } catch (error) {
     console.error("Error during fetch operation:", error);
+    // Optionally, send a Slack notification or handle the error as needed
   }
 };
 
-const init = ({ fetchSnippet, slackWebhook, thresholds, defaultDuration }) => {
-  // Initial fetch
-  performFetch();
+/**
+ * Initializes the scheduler based on the current configuration.
+ * @param {object} config - The current configuration object.
+ */
+const init = () => {
+  stop();
+  // Perform an initial fetch
+  performFetchOperation();
 };
 
 module.exports = {
   init,
   scheduleFetch,
+  stop,
 };
