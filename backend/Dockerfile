@@ -1,14 +1,17 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
 
+USER root
+RUN npm install -g pnpm
+
+USER pptruser
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
 
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
 EXPOSE 5000
 
-CMD ["npm", "start"]
-
+CMD ["pnpm", "start"]

@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [nextFetchAt, setNextFetchAt] = useState<string>("N/A");
   const [defaultDuration, setDefaultDuration] = useState<number>(120);
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Fetch status from backend
   const fetchStatus = async () => {
@@ -64,6 +65,7 @@ const App: React.FC = () => {
 
   // Handle Save & Start Monitoring
   const handleSaveAndStart = async () => {
+    setLoading(true);
     try {
       const payload = {
         fetchSnippet,
@@ -87,6 +89,8 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error saving configuration:", error);
       alert("An error occurred while saving configuration.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -175,10 +179,10 @@ const App: React.FC = () => {
                     slackWebhook &&
                     thresholds.length > 0 &&
                     defaultDuration > 0
-                  )
+                  ) || loading
                 }
               >
-                Save & Start Monitoring
+                {loading ? "Saving..." : "Save & Start Monitoring"}
               </button>
             </div>
           </>
@@ -186,7 +190,10 @@ const App: React.FC = () => {
       </main>
       <footer>
         <p>
-          Created by <a href="https://github.com/Bug-Finderr">Bug-Finderr</a>
+          Created by{" "}
+          <a href="https://github.com/Bug-Finderr" target="_blank">
+            Bug-Finderr
+          </a>
         </p>
       </footer>
     </>

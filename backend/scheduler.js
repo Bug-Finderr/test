@@ -1,46 +1,43 @@
-const cron = require("node-cron");
 const fetchHandler = require("./fetchHandler");
 const db = require("./database");
-const { determineNextInterval } = require("./intervalUtils");
+const { determineNextInterval, formatTimestamp } = require("./utils");
 
-let currentTask = null;
+let scheduledTask = null;
 
 /**
  * Schedules the next fetch operation.
  * @param {number} intervalInMinutes - The interval in minutes for the next fetch.
  */
 const scheduleFetch = (intervalInMinutes) => {
-  // First stop any existing task
-  stop();
-
-  // Convert minutes to cron expression
-  // Cron format: second minute hour day month weekday
-  const cronExpression = `0 */${intervalInMinutes} * * * *`;
+  // Convert minutes to milliseconds
+  const intervalMs = intervalInMinutes * 60 * 1000;
 
   try {
-    currentTask = cron.schedule(cronExpression, async () => {
+    // Schedule next fetch using setTimeout
+    scheduledTask = setTimeout(async () => {
       console.log("Scheduled fetch triggered.");
       await performFetchOperation();
-    });
+    }, intervalMs);
 
-    const nextFetchDate = new Date(Date.now() + intervalInMinutes * 60000);
     console.log(
-      `Scheduled next fetch in ${intervalInMinutes} minutes.\nNext fetch at: ${nextFetchDate.toISOString()}\n`
+      `Next automated fetch scheduled in ${intervalInMinutes} minutes.\nNext fetch at: ${formatTimestamp(
+        Date.now() + intervalMs
+      )}\n`
     );
   } catch (error) {
     console.error("Error scheduling fetch:", error);
-    currentTask = null;
+    scheduledTask = null;
   }
 };
 
 /**
- * Stops the current scheduled fetch operation.
+ * Clears any existing scheduled tasks.
  */
-const stop = () => {
-  if (currentTask) {
-    currentTask.stop();
-    currentTask = null;
-    console.log("Existing scheduled task stopped.");
+const clearScheduledTask = () => {
+  if (scheduledTask) {
+    clearTimeout(scheduledTask);
+    scheduledTask = null;
+    console.log("Existing scheduled task cleared.");
   }
 };
 
@@ -66,7 +63,6 @@ const performFetchOperation = async () => {
         creditBalance,
         slackWebhook,
         thresholds,
-        manual: false,
       });
 
       // Determine the next interval based on the current balance
@@ -76,41 +72,44 @@ const performFetchOperation = async () => {
         defaultDuration
       );
 
-      const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
-      const nextFetchAt = nextFetchAtDate.toLocaleString();
-
       // Update status in database
       await db.updateStatus({
         remainingBalance: creditBalance,
         lastFetch: Date.now(),
         nextFetchCountdown: nextInterval,
-        nextFetchAt: nextFetchAt,
+        nextFetchAt: formatTimestamp(Date.now() + nextInterval * 60000),
       });
 
-      // Schedule the next fetch
+      // Schedule the next automated fetch
       scheduleFetch(nextInterval);
     } else {
-      // If fetch failed, performFetch already handled Slack notification
       console.warn("Failed to fetch credit balance.");
     }
   } catch (error) {
     console.error("Error during fetch operation:", error);
-    // Optionally, send a Slack notification or handle the error as needed
   }
 };
 
 /**
- * Initializes the scheduler based on the current configuration.
- * @param {object} config - The current configuration object.
+ * Triggers a manual fetch operation.
  */
-const init = () => {
-  stop();
-  // Perform an initial fetch
-  performFetchOperation();
+const manualFetch = async () => {
+  console.log("Manual fetch triggered.");
+  clearScheduledTask();
+  await performFetchOperation();
+};
+
+/**
+ * Initializes the scheduler based on the current configuration.
+ */
+const init = async () => {
+  console.log("Initializing scheduler...");
+  clearScheduledTask();
+  await performFetchOperation();
 };
 
 module.exports = {
   init,
   scheduleFetch,
-  stop,
+  manualFetch,
 };

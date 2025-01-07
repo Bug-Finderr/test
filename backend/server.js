@@ -2,8 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const db = require("./database");
 const scheduler = require("./scheduler");
-const fetchHandler = require("./fetchHandler");
-const { determineNextInterval } = require("./intervalUtils");
 
 const app = express();
 const PORT = 5000;
@@ -21,13 +19,7 @@ app.use(express.json());
 app.post("/setup", async (req, res) => {
   const { fetchSnippet, slackWebhook, thresholds, defaultDuration } = req.body;
 
-  if (
-    !fetchSnippet ||
-    !slackWebhook ||
-    !thresholds ||
-    thresholds.length === 0 ||
-    !defaultDuration
-  ) {
+  if (!fetchSnippet || !slackWebhook || !thresholds || !defaultDuration) {
     return res
       .status(400)
       .json({ status: "error", message: "Invalid configuration data." });
@@ -68,47 +60,8 @@ app.post("/manual-fetch", async (req, res) => {
         .json({ status: "error", message: "Configuration not found." });
     }
 
-    // Stop any existing scheduled task
-    scheduler.stop();
-
-    const { fetchSnippet, slackWebhook, thresholds, defaultDuration } = config;
-    const creditBalance = await fetchHandler.performFetch(
-      fetchSnippet,
-      slackWebhook
-    );
-
-    if (creditBalance !== null && !isNaN(creditBalance)) {
-      await fetchHandler.handleBalance({
-        creditBalance,
-        slackWebhook,
-        thresholds,
-        manual: true,
-      });
-
-      // Determine the next interval based on the current balance
-      const nextInterval =
-        determineNextInterval(creditBalance, thresholds, defaultDuration) ||
-        defaultDuration;
-      const nextFetchAtDate = new Date(Date.now() + nextInterval * 60000);
-      const nextFetchAt = nextFetchAtDate.toLocaleString();
-
-      // Update status in database
-      await db.updateStatus({
-        remainingBalance: creditBalance,
-        lastFetch: Date.now(),
-        nextFetchCountdown: nextInterval,
-        nextFetchAt: nextFetchAtDate.toISOString(),
-      });
-
-      // Schedule the next fetch
-      scheduler.scheduleFetch(nextInterval);
-
-      res.json({ status: "success" });
-    } else {
-      res
-        .status(500)
-        .json({ status: "error", message: "Failed to fetch credit balance." });
-    }
+    await scheduler.manualFetch();
+    res.json({ status: "success" });
   } catch (error) {
     console.error("Error in manual fetch:", error);
     res
@@ -167,4 +120,19 @@ app.listen(PORT, () => {
   db.getConfig().then((config) => {
     if (config) scheduler.init();
   });
+});
+
+// Cleanup Puppeteer on server shutdown
+process.on("SIGINT", async () => {
+  console.log("Shutting down server...");
+  const puppeteerManager = require("./puppeteerManager");
+  await puppeteerManager.cleanup();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("Shutting down server...");
+  const puppeteerManager = require("./puppeteerManager");
+  await puppeteerManager.cleanup();
+  process.exit(0);
 });

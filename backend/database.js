@@ -1,7 +1,6 @@
-// backend/database.js
-
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const { formatTimestamp } = require("./utils");
 
 const dbPath = path.resolve(__dirname, "database.sqlite");
 
@@ -86,7 +85,6 @@ const saveConfig = ({
                 console.error("Error finalizing thresholds insertion:", err);
                 return reject(err);
               }
-              console.log("Configuration and thresholds saved successfully.");
               resolve();
             });
           });
@@ -195,14 +193,12 @@ const getStatus = () => {
           remainingBalance: row.remainingBalance
             ? `$${row.remainingBalance.toFixed(2)}`
             : "N/A",
-          lastFetch: row.lastFetch
-            ? new Date(row.lastFetch).toISOString()
-            : "N/A",
+          lastFetch: row.lastFetch ? formatTimestamp(row.lastFetch) : "N/A",
           nextFetchCountdown: row.nextFetchCountdown
             ? `${row.nextFetchCountdown} minutes`
             : "N/A",
           nextFetchAt: row.nextFetchAt
-            ? new Date(row.nextFetchAt).toISOString()
+            ? formatTimestamp(new Date(row.nextFetchAt).getTime())
             : "N/A",
         };
         resolve(formattedStatus);

@@ -55,7 +55,26 @@ Both parts must be self-hosted by the user.
 - **SQLite3:** Used as a lightweight database for configuration and status storage.
 - **Slack Workspace:** To receive notifications.
 - **Hosting Environment:** Frontend and backend need to be hosted separately by the user.
-- **System Resources:** Each fetch operation takes approximately 10-60 seconds.
+- **System Resources:**
+  - Initial fetch operation takes approximately 10-60 seconds
+  - Subsequent fetches are significantly faster due to persistent browser session
+  - Minimum 1GB RAM recommended for Puppeteer operations
+
+## Performance Optimizations
+
+Recent improvements include:
+
+1. **Persistent Browser Session:**
+
+   - Browser instance remains active between fetches
+   - Significantly reduced latency for subsequent operations
+   - Automatic session recovery on failures
+   - Graceful shutdown handling
+
+2. **Improved Scheduling:**
+   - Precise interval timing using setTimeout
+   - Accurate scheduling regardless of operation duration
+   - Better cleanup of scheduled tasks
 
 ---
 
@@ -182,13 +201,14 @@ If you need the Chrome Extension version, switch to the `extension` branch.
 ## Development Status
 
 - **Testing Coverage:** Backend is currently not end-to-end tested and may exhibit minor bugs in production environments.
-- **Known Performance Considerations:**
-  - Each fetch operation takes approximately 10-60 seconds
-  - Failed fetches trigger retries, each taking an additional 10-60 seconds
-  - Multiple concurrent fetches may impact system performance
+- **Performance Metrics:**
+  - Initial fetch: 10-60 seconds
+  - Subsequent fetches: 2-5 seconds
+  - Failed fetches trigger retries with exponential backoff
 - **Future Development:**
-  - End-to-end testing implementation is planned for the next patch/release
-  - Performance optimizations are under consideration
+  - End-to-end testing implementation is planned
+  - Additional performance optimizations
+  - Chrome extension alternative in development
 
 ---
 
