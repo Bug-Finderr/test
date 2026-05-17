@@ -1,1 +1,3 @@
 # Test repo
+
+check gpg
