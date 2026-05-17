@@ -1,3 +1,3 @@
 # Test repo
 
-check gpg
+check signed commit
